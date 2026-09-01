@@ -31,13 +31,14 @@ from sqisign_prism_v2_main.ec import ChangeOfBasis,TorsionBasis,EvalMatrix
 class parameters():
     '''
     pp for SPIDER sigma protocol '''
-    def __init__(self,q,level=_sage_const_1 ,r=_sage_const_1 ):
+    
+    def __init__(self,q,level=_sage_const_1 ,r=_sage_const_1):
         assert level in [_sage_const_1 ,_sage_const_3 ,_sage_const_5 ]
         params.set_spider_params(level)
         self.r=r
         self.q=q
         self.a=params.a
-        self.d=q*(_sage_const_2 **(self.a/_sage_const_2 )-q)
+        self.d=self.q*(Integer(2) **(self.a/Integer(2))-self.q)
         assert self.d>_sage_const_0 , "d must be positive"
         self.p=params.p
         self.E0=params.E0
@@ -48,10 +49,14 @@ class parameters():
         Fq=self.E0.base_ring()
         Fp4 = Fq.extension(_sage_const_2 , 'j')
         self.Fp4 = Fp4
-        if level==_sage_const_1 :
-            self.t=_sage_const_210 
-            self.w=_sage_const_33 
-          
+        
+            
+    def set_q(self,q):
+        assert is_prime(q), "q must be prime"
+        self.d=q*(Integer(2) **(self.a/Integer(2))-q)
+        self.q=q
+        return None
+             
 
     def PRNG(self, seed):
         s_u=[]
@@ -75,13 +80,15 @@ def spider_sample(pp):
     lb=_sage_const_500 
     P0=params.P0
     Q0=params.Q0
-    
+
     a=pp.a/_sage_const_2 
     N=next_prime(_sage_const_2 **(_sage_const_4 *lb))
     I0=RandomIdealGivenNorm(N, prime=True)
+    
     if not I0:
         raise ValueError(f"Failed to find a random ideal of norm {N}")
     E,phi_P0,phi_Q0=IdealToIsogeny(I0)
+    E.set_order((p+_sage_const_1 )**_sage_const_2 , num_checks=_sage_const_0 )
     P,Q=TorsionBasis(E)
     M=ChangeOfBasis((phi_P0,phi_Q0),(P,Q), e=None) 
     assert EvalMatrix(M, (phi_P0, phi_Q0)) == (P, Q)
@@ -95,14 +102,17 @@ def spider_sample(pp):
     phi=E_prim,(phi_P,phi_Q)  
     return E,phi
 
-def sigma_Rd_Commit(pp,E,phi,seed=None):
+def sigma_Rd_Commit(pp,E,phi,seed=None,P=None,Q=None):
+    p=pp.p
     a=pp.a/_sage_const_2    # This is because the actual a used in the code is 2a from the paper, for simplicity. We should fix this in the future.
     if seed is None:
         seed = randint(_sage_const_0 , _sage_const_2 **a - _sage_const_1 )
     r=pp.r  
     assert r==_sage_const_1 , "Currently only supports r=1" #TODO: Handle the case r>1 in the future
+    E.set_order((p+_sage_const_1 )**_sage_const_2 , num_checks=_sage_const_0 )
     s_u=pp.PRNG(seed)
-    P,Q=TorsionBasis(E)
+    if P is None or Q is None:
+        P,Q=TorsionBasis(E)
     
     Pu=(_sage_const_2 **a)*P
     Qu=(_sage_const_2 **a)*Q
@@ -110,6 +120,7 @@ def sigma_Rd_Commit(pp,E,phi,seed=None):
     psi0=E.isogeny(Ru,algorithm="factored")
     E1=psi0.codomain().montgomery_model()
     #print("E1=",E1)
+    E1.set_order((p+_sage_const_1 )**_sage_const_2 , num_checks=_sage_const_0 )
     state=(seed,E,P,Q,a,phi,s_u,psi0,E1)
     return E1,state
 
@@ -149,10 +160,11 @@ def sigma_Rd_Verify(pp,E,com,ch,resp):
         return psi0.codomain().is_isomorphic(E1) 
     else:
         q=pp.q
-        a=pp.a/_sage_const_2    # This is because the actual a used in the code is 2a from the paper.
+        #a=pp.a/_sage_const_2    # This is because the actual a used in the code is 2a from the paper.
         E1, E1_prim, (psi1_P1, psi1_Q1)=resp
         P1,Q1=TorsionBasis(E1)
         P1_u,Q1_u=_sage_const_2 **a*P1, _sage_const_2 **a*Q1
+        #psi1_P1, psi1_Q1=_sage_const_2 **a*psi1_P1, _sage_const_2 **a*psi1_Q1
         K=(CouplePoint(q*P1_u,psi1_P1),CouplePoint(q*Q1_u,psi1_Q1))
         PSI1=Dim2Iso(K,a)
         R1=PSI1(CouplePoint(P1_u,E1_prim(_sage_const_0 )))[_sage_const_0 ]
@@ -168,7 +180,6 @@ if __name__ == "__main__":
     q=next_prime(2**249)
     #a=320
     pp=parameters(q,level=1,r=1)
-    #pp_sigma=pp.pp_sigma
     d=pp.d
     a=pp.a/2
     msg="hallo world"

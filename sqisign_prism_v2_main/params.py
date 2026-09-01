@@ -192,10 +192,10 @@ def set_spider_params(lvl):
     """
     Return parameters for SPIDER at the given level
     """
-
+    
     global p, f, lb, a, rb, D_mix
     global FP_ENC_BYTES
-
+    
     if lvl == 1:
         p = ZZ(27*2**500 - 1)
         f = ZZ(500)
@@ -203,20 +203,6 @@ def set_spider_params(lvl):
         rb = ZZ(32)
         lb = ZZ(128)
         
-# Parameters for level 3 and 5 are still to be defined.
-    elif lvl == 3:
-        p = ZZ(65*2**376 - 1)
-        f = ZZ(376)
-        a = ZZ(256)
-        rb = ZZ(20)
-        lb = ZZ(376)
-
-    elif lvl == 5:
-        p = ZZ(27*2**500 - 1)
-        f = ZZ(500)
-        a = ZZ(500)
-        rb = ZZ(32)
-        lb = ZZ(128)
 
     else:
         raise ValueError(f"level {lvl} not recognized")

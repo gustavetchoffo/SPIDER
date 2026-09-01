@@ -20,14 +20,13 @@ logger.addHandler(logger_sh)
 from SPIDER_sigma import *
 from generalities import SeedTree,Node_seed,recover_leaves,parse_hashs_t_w
 
-class SPIDER_pp():
+class SPIDER_pp(parameters):
     '''
     pp for SPIDER signature '''
-    def __init__(self,q,level=_sage_const_1 ,r=_sage_const_1 ):
-        self.pp_sigma=parameters(q,level,r)
-        if level==_sage_const_1 :
-            self.t=_sage_const_210 
-            self.w=_sage_const_33 
+    def __init__(self,q,level=_sage_const_1 ,r=_sage_const_1,t=Integer(210),w=Integer(33)):
+        super().__init__(q,level,r)
+        self.t=t
+        self.w=w
     
     def H(self,data):
         #msg=data.encode()
@@ -42,39 +41,55 @@ def SPIDER_sign(pp,pk,sk,msg):
     E=pk
     phi=sk
     t=pp.t
-    lb=pp.pp_sigma.lb
+    lb=pp.lb
     size=Integer(_sage_const_2 **lb)
+    #t0_seed=time.time() 
     val_seed_root=ZZ.random_element(size)
     seed_root=Node_seed(val_seed_root,parent=None,left_child=None,right_child=None,h=_sage_const_0 ,i=_sage_const_0 ,nb_leaves=t)
     seed_tree=SeedTree(seed_root,t,lb)
     seed_leaves=seed_tree.leaves()
-        
+      
     seeds=[int.from_bytes(leaf.value) for leaf in seed_leaves]
-    #seeds=[int.from_bytes(val) for val in seed_bytes]
-    #com=[]
+    #t1_seed=time.time()
+    #print(f'Seed generation time: {t1_seed-t0_seed:.3f} s')
     state=[]
     data=E.j_invariant().to_bytes()
+    #t0_com=time.time()
+    P,Q=TorsionBasis(E)
+    coms=[sigma_Rd_Commit(pp,E,phi,seeds[i],P,Q) for i in range(t)]
+    [state.append(coms[i][_sage_const_1 ]) for i in range(t)]
+    #[data=data+coms[i][_sage_const_0 ].j_invariant().to_bytes() for i in range(t)]
+    
     for i in range(t):
-        com_i=sigma_Rd_Commit(pp.pp_sigma,E,phi,seeds[i])
-        #com.append(com_i[0])
-        state.append(com_i[_sage_const_1 ])
-        data+=com_i[_sage_const_0 ].j_invariant().to_bytes()      #preferable to use the A- coeff?
+     #   com_i=sigma_Rd_Commit(pp,E,phi,seeds[i],P,Q)
+      #  state.append(com_i[_sage_const_1 ])
+        data+=coms[i][_sage_const_0 ].j_invariant().to_bytes()      #preferable to use the A- coeff?
+    
     msg=msg.encode()
     data+=msg
     ch=pp.H(data)
+    #t0_resp0=time.time()
     seed_internal=seed_tree.releaseSeed(ch,_sage_const_0 )
+    #t1_resp0=time.time()
+    #print(f'Response_0 time: {t1_resp0-t0_resp0:.3f} s')
     resp={}
-    for i in range(t):
-        if ch[i]==_sage_const_1 :
-            resp[i]=sigma_Rd_Response(state[i],_sage_const_1 )
+    #t0_resp1=time.time()
+    resp1=[(i,sigma_Rd_Response(state[i],_sage_const_1 )) for i in range(t) if ch[i]==_sage_const_1 ]
+    [resp.update({r[Integer(0)]:r[Integer(1)]}) for r in resp1]
+    #for i in range(t):
+     #   if ch[i]==_sage_const_1 :
+      #      resp[i]=sigma_Rd_Response(state[i],_sage_const_1 )
+    #t1_resp1=time.time()
+    #print(f'Response_1 time: {t1_resp1-t0_resp1:.3f} s\n \n')
+
     return ch,seed_internal,resp
 
 def SPIDER_vrify(pp,pk,msg,sign):
     print("SPIDER verification process")
     E=pk
     t=pp.t
-    pp_sigma=pp.pp_sigma
-    lb=pp.pp_sigma.lb
+    a=pp.a/_sage_const_2 
+    lb=pp.lb
     ch,seed_internal,resp=sign
     seeds_0=recover_leaves(seed_internal,ch,_sage_const_0 ,lb)
     ct=_sage_const_0 
@@ -85,12 +100,12 @@ def SPIDER_vrify(pp,pk,msg,sign):
                 ct=i+_sage_const_1 
                 break
     assert len(resp)==t
+    P,Q=TorsionBasis(E)
     data=E.j_invariant().to_bytes()
     for i in range(t):
         if ch[i]==_sage_const_0 :
             seed=int.from_bytes(resp[i])
-            s_u=pp_sigma.PRNG(seed)
-            P,Q=TorsionBasis(E)
+            s_u=pp.PRNG(seed)
             Pu,Qu=_sage_const_2 **a*P, _sage_const_2 **a*Q
             Ru=Pu+s_u[_sage_const_0 ]*Qu
             psi0=E.isogeny(Ru,algorithm="factored")
@@ -98,7 +113,7 @@ def SPIDER_vrify(pp,pk,msg,sign):
             data+=j1.to_bytes()
         else:
             E1,_,_=resp[i]
-            assert sigma_Rd_Verify(pp_sigma,E,E1,_sage_const_1 ,resp[i])
+            assert sigma_Rd_Verify(pp,E,E1,_sage_const_1 ,resp[i])
             j1=E1.j_invariant()
             data+=j1.to_bytes()
     msg=msg.encode()
@@ -107,27 +122,4 @@ def SPIDER_vrify(pp,pk,msg,sign):
 
 
 
-if __name__ == "__main__":
-    
-    q=next_prime(_sage_const_2 **_sage_const_249 )
-    #a=320
-    pp=SPIDER_pp(q,level=_sage_const_1 ,r=_sage_const_1 )
-    pp_sigma=pp.pp_sigma
-    d=pp_sigma.d
-    a=pp_sigma.a/_sage_const_2 
-    msg="hallo world"
-    #Fp2=params.Fp2
-    #print("\n",sample(pp))
-    t1=time.time()
-    E,phi=spider_sample(pp_sigma)
-    t2=time.time()
-    
-    sign=SPIDER_sign(pp,E,phi,msg)
-    t3=time.time()
-    v=SPIDER_vrify(pp,E,msg,sign)
-    t4=time.time()
-    print(f'key generation time: {t2-t1:.3f} s')
-    print(f'Signature time: {t3-t2:.3f} s')
-    print(f'verification time: {t4-t3:.3f} s')
-    print("\n verif=",v)
 

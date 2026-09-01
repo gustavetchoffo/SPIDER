@@ -137,7 +137,7 @@ def RandomIdealGivenNorm(N, prime):
     if prime:
         while True:
             g1, g2, g3 = [randint(0, N-1) for _ in range(3)]
-            print(f"Parameters: {params.p = }, {params.f = }, {params.lb = }")
+            #print(f"Parameters: {params.p = }, {params.f = }, {params.lb = }")
             gamma = params.B([0, g1, g2, g3])
             n_gamma = gamma.reduced_norm()
             if kronecker(-n_gamma, N) == 1:

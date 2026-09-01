@@ -68,6 +68,8 @@ def SPIDER_vrify(pp,pk,msg,sign):
     E=pk
     t=pp.t
     pp_sigma=pp.pp_sigma
+    a=pp_sigma.a/2
+    print("verify a=",a)
     lb=pp.pp_sigma.lb
     ch,seed_internal,resp=sign
     seeds_0=recover_leaves(seed_internal,ch,0,lb)

@@ -21,12 +21,13 @@ except ImportError:
     import quaternions as qt
     import qlapoti as qlpt
 
-def hash_to_prime(msg, E_pk, r=None):
+def hash_to_prime(msg, E_pk, r=None,a=None):
     """
     Hash (message || pk || r) into an (a-1)-bit number
     randomly generating r until the output is prime.
     """
-
+    if a==None:
+        a=params.a
     enc_pk = misc.encode_curve_j(E_pk)
     if type(msg) == str: msg = msg.encode()
     if b'&&' in msg:
@@ -38,7 +39,7 @@ def hash_to_prime(msg, E_pk, r=None):
     if r:
         chl = msg + r
         h = hashlib.sha256(chl).digest()
-        q = int.from_bytes(h, 'big') % (2**params.a)
+        q = int.from_bytes(h, 'big') % (2**a)
         if is_pseudoprime(q):
             return q, r
         raise ValueError("invalid salt provided")
@@ -49,7 +50,7 @@ def hash_to_prime(msg, E_pk, r=None):
         # cnt = str(counter).encode()
         chl = msg + r
         h = hashlib.sha256(chl).digest()
-        q = int.from_bytes(h, 'big') % (2**params.a)
+        q = int.from_bytes(h, 'big') % (2**a)
         if is_pseudoprime(q):
             return q, r
 
